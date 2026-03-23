@@ -38,11 +38,18 @@ jobs:
       - name: Copy Web Assets to Android
         run: npx cap copy android
 
+      - name: Fix Kotlin Duplicate Classes
+        run: |
+          # Этот шаг исправляет конфликт библиотек Kotlin
+          echo "android.useAndroidX=true" >> android/gradle.properties
+          echo "android.enableJetifier=true" >> android/gradle.properties
+          echo "kotlin.stdlib.default.dependency=false" >> android/gradle.properties
+
       - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '21' # <--- МЫ ИЗМЕНИЛИ ЭТО С 17 НА 21
+          java-version: '21'
 
       - name: Build APK
         run: |
