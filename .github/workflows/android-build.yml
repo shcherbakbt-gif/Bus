@@ -16,19 +16,29 @@ jobs:
         with:
           node-version: 20
 
+      - name: Prepare Web Directory
+        run: |
+          # Создаем папку www и копируем туда всё, кроме системных папок
+          mkdir www
+          cp -r *.html *.json *.jpg *.png www/ 2>/dev/null || true
+          # Проверяем, что файлы скопировались
+          ls -R www
+
       - name: Install Capacitor Dependencies
         run: |
-          # Создаем package.json, если его нет
           if [ ! -f package.json ]; then
             echo '{"name": "bus-app", "version": "1.0.0"}' > package.json
           fi
-          # Устанавливаем необходимые пакеты локально
           npm install @capacitor/core @capacitor/cli @capacitor/android
 
       - name: Initialize Capacitor and Add Android
         run: |
-          npx cap init "Bus Lernprogramm" "com.bus.app" --web-dir .
+          # Теперь указываем папку www вместо точки
+          npx cap init "Bus Lernprogramm" "com.bus.app" --web-dir www
           npx cap add android
+
+      - name: Copy Web Assets to Android
+        run: npx cap copy android
 
       - name: Setup Java
         uses: actions/setup-java@v4
