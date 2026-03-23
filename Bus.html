@@ -1,0 +1,1936 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abfahrtskontrolle Bus - Lernprogramm</title>
+    <style>
+        :root {
+            --bus-yellow: #ffd700;
+            --dark-grey: #333;
+            --light-grey: #f4f4f4;
+            --accent-red: #d32f2f;
+            --accent-blue: #1976d2;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            background-color: var(--light-grey);
+            color: var(--dark-grey);
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: var(--dark-grey);
+            color: white;
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-home { background-color: #fff; color: #000; }
+        .btn-back { background-color: #555; color: white; }
+
+        #search-input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 15px;
+        }
+
+        .yellow-card {
+            background-color: var(--bus-yellow);
+            aspect-ratio: 1/1.2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .yellow-card h2 { font-size: 3rem; margin: 0; }
+
+        .question-list-item {
+            background: white;
+            margin-bottom: 10px;
+            padding: 15px;
+            border-left: 6px solid var(--bus-yellow);
+            cursor: pointer;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .answer-container {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .highlight-red { color: var(--accent-red); font-weight: bold; }
+        .highlight-blue { color: var(--accent-blue); font-weight: bold; }
+        .section-title { font-weight: bold; text-decoration: underline; margin-top: 15px; display: block; }
+
+        .hidden { display: none; }
+        ul { padding-left: 20px; }
+		
+		.zoomable-img {
+            width: 100%; 
+            max-width: 400px; 
+            margin-top: 10px; 
+            border-radius: 5px; 
+            cursor: zoom-in;
+            transition: 0.3s;
+        }
+
+        .zoomable-img:hover { opacity: 0.8; }
+
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 2000; 
+            padding-top: 50px; 
+            left: 0; top: 0; width: 100%; height: 100%; 
+            background-color: rgba(0,0,0,0.9); 
+            cursor: zoom-out;
+        }
+
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 95%;
+            max-height: 90%;
+            animation: zoom 0.3s;
+        }
+
+		@keyframes zoom {
+			from {transform: scale(0)} 
+			to {transform: scale(1)}
+		}
+		.zoomable-img {
+    width: 100%; /* Картинка всегда по ширине экрана */
+    max-width: 100%; 
+    height: auto; /* Сохраняем пропорции */
+    margin-top: 10px; 
+    border-radius: 5px; 
+    cursor: zoom-in;
+    display: block; /* Убирает лишние отступы */
+}
+    </style>
+</head>
+<link rel="manifest" href="manifest.json">
+<body>
+
+<header>
+    <div class="nav-buttons">
+        <button class="btn-home" onclick="showHome()">🏠 Home</button>
+        <div id="nav-title">Abfahrtskontrolle Bus</div>
+        <button id="back-button" class="btn-back hidden" onclick="goBack()">⬅ Zurück</button>
+    </div>
+    <input type="text" id="search-input" placeholder="Suchen..." oninput="search()">
+</header>
+
+<div class="container">
+    <div id="view-home" class="grid"></div>
+    <div id="view-questions" class="hidden">
+        <h2 id="current-card-title"></h2>
+        <div id="questions-container"></div>
+    </div>
+    <div id="view-answer" class="hidden">
+        <h3 id="answer-question-text" style="color: var(--accent-blue);"></h3>
+        <div id="answer-content"></div>
+    </div>
+</div>
+
+<div id="imageModal" class="modal" onclick="this.style.display='none'">
+    <img class="modal-content" id="fullImage">
+</div>
+
+<script>
+    const cardsData = [
+        {
+            id: 1,
+            questions: [
+                {
+                    q: "1. Aufgaben vor Fahrtantritt am Fahrtenschreiber/EG-Kontrollgerät (Karte 7 / Frage 1)",
+                    a: `<ul>
+						<img src="0.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<ul style="list-style-type: '– ';">
+							<li>Zündung „AN"</li>
+                            <li>Fahrerkarte für Fahrer 1 in Schacht 1</li>
+                            <li>Chip nach vorn und nach oben</li>
+                            <li>Nachtrag auswählen „Ja" oder „Nein" > mit „Ok" bestätigen</li>
+						<img src="0-1.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<ul style="list-style-type: '– ';">
+                            <li>aktuelles Land auswählen (für uns „D" für Deutschland) > mit „Ok" bestätigen</li>
+                            <li>mit Zeitgruppenschalter für Fahrer 1 "sonstige Arbeitszeit ⚒️" auswählen</li>
+							<li>Abfahrkontrolle machen</li>
+                            <li>ist <b>ausreichend</b> Vorratsdruck vorhanden, kann Abfahrkontrolle <b>ohne</b> laufenden Motor durchgeführt werden (Umweltschutz; Kraftstoff sparen)</li>
+                            <li>ist Vorratsdruck <b>nicht ausreichend</b>, Abfahrkontrolle <b>mit laufendem Motor</b> durchführen</li>
+			</ul>`
+                },
+                {
+                    q: "2. Kontrolle des Standes der Bremsflüssigkeit",
+                    a: `<p>wir haben keine Bremsflüssigkeit. Unser Fahrzeug hat eine Druckluftbremsanlage.</p>
+                        <span class="section-title">Vorratsdruck prüfen:</span>
+                        <ul>
+                            <li>Druckluftvorrat prüfen, indem wir in Bordmenü gehen und nachsehen, wieviel Vorratsdruck aktuell vorhanden ist</li>
+							<li>enütasten rechte / linke Lenkradspeiche</li>
+							 <img src="1.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<li>über Menütasten an rechter / linker Lenkradspeiche Symbol „Bus" wählen</li>
+							 <img src="2.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+                            <li>Menütaste nach unten drücken, bis die Anzeige „Druckluft" erscheint</li>
+							<img src="2.1.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+                        </ul>`
+                },
+                {
+                    q: "3. Prüfen der Reifengröße anhand des Fahrzeugscheines",
+                    a: `<ul>
+						<img src="3-3.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<img src="3-4.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+                            <li>Zulassungsbescheinigung Teil 1 (ZB 1) nehmen</li>
+							<li>zu Reifen gehen</li>
+                            <li>ZB 1 (Zeile 15.1/15.2) mit Aufdruck am Reifen vergleichen</li>
+						</ul>
+						<ul>
+                        	&nbsp &nbsp<span class="highlight-red">295/80 R 22,5</span> &nbsp &nbsp &nbsp<b>152/ -- J</b><br>
+							&nbsp &nbsp<span class="highlight-red">275/70 R 22,5</span> &nbsp &nbsp &nbsp<b>--/145 J</b>
+						</ul>
+						<ul>
+                            <li><span class="highlight-red">295</span> = Reifenbreite in <b>mm</b></li>
+                            <li><span class="highlight-red">80</span> = Höhen-Breiten-Verhältnis in % (80% von 295 ist Reifen Höhe)</li>
+                            <li><span class="highlight-red">R</span> = Bauweise des Reifens <b>„Radialreifen"</b></li>
+                            <li><span class="highlight-red">22,5</span> = Felgendurchmesser/Reifeninnendurchmesser in <b>Zoll</b></li>
+						<img src="3-2.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+                        </ul>`
+                },
+                {
+                    q: "4. Bremsleuchten, Kennzeichenbeleuchtung, Rückstrahler prüfen (Karte 7/ Frage 4)",
+                    a: `<ul>
+                            <li>Zündung anschalten</li>
+							<li>Standlicht einschalten</li>
+                            <li>zum Heck des Fahrzeugs gehen</li>
+                            <li>Kennzeichenbeleuchtung überprüfen</li>
+								<li>&nbsp &nbsp sauber</li>
+								<li>&nbsp &nbsp nicht kapput</li>
+								<li>&nbsp &nbsp muss leuchten</li>
+                            <li>alle 4 Bremsleuchten kontrollieren</li>
+							<li>Rückstrahler kontrollieren:</li>
+							<li>&nbsp &nbsp dürfen nicht kaputt, verschmutzt oder verdeckt sein</li>
+							<li>&nbsp &nbsp können mit einer Taschenlampe geprüft werden</li>
+						<img src="4-1.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+                        </ul>`
+                },
+                {
+                    q: "5. Sichtprüfung von Kühler und Kühlleitungen, Kontrolle des Kühlflüssigkeitsstandes (Karte 2/ Frage 5)",
+                    a: `<ul>
+						 <img src="3.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<p><p style="color: red;">Vorratsbehälter für Kühlflüssigkeit</p>
+							<p><p style="color: blue;">Knopf zur Bedienung der Pumpe, um Kühlflüssigkeit ins Kühlsystem nachzufüllen</p>
+							<p><p style="color: purple;">Anzeige für Minimum / Maximum</p>
+						<span class="section-title">Vorrat kontrollieren:</span>
+							<li>Kühlflüssigkeit muss zwischen min / max stehen</li>
+                            <li>ist zu wenig Kühlflüssigkeit, Knopf für Pumpe betätigen, bis Füllstand zwischen min / max erreicht ist</li>
+							<li>immer kontrollieren, ob sich ausreichend Kühlflüssigkeit im Vorratsbehälter befindet</li>
+                        </ul>
+                        <span class="section-title">ACHTUNG!</span>
+                        <ul>
+                        <span class="section-title">Ist das Fahrzeug überhitzt wegen mangelnder Kühlflüssigkeit:</span>
+                            <li>Fahrzeug mindestens 15 Minuten abkühlen lassen (Motor „,AUS")</li>
+                            <li>vorsichtig den Deckel des Vorratsbehälters öffnen (<span style="color: red;">Handschuhe</span> anziehen), da die Flüssigkeit siedet und herausspritzen kann</li>
+							<li>vorsichtig in kleinen Schlucken nachfüllen (Temperaturunterschied „heiß & kalt" kann zu Spannungen im Vorratsbehälter führen (,Eiswürfel") = es können Mikro- Risse entstehen</li>
+							<li>Kühlflüssigkeit = gelbe Farbe</li>
+							<li>wenn keine Kühlflüssigkeit = normales Wasser</li>
+                        </ul>
+						<span class="section-title">Kühlleitungen kontrollieren:</span>
+                        <ul>
+                            <li>die Leitungen dürfen nicht undicht, gerissen oder porös sein</li>
+                            <li>die Schellen müssen fest sitzen; dürfen nicht defekt oder verrostet sein</li>
+                            <li>bei Defekt / Rost = austauschen</li>
+						<ul>
+						<span class="section-title">Kühler kontrollieren:</span>
+							<li>der Kühler darf nicht nass, verrostet, beschädigt oder schmutzig sein</li>
+							<li>es darf sich kein Müll (Papier, Laub) vor dem Kühler befinden, sonst kann Luft (heiß /kalt) nicht zirkulieren</li>
+							<li>Ventilator kontrollieren = muss ohne Probleme arbeiten</li>
+						<ul>
+						<span class="section-title">unter dem Fahrzeug:</span>
+							<li>unter das Fahrzeug sehen, ob Kühlflüssigkeit austritt = Bildung einer Wasserpfütze</li>
+						<img src="3-1.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						</ul>`
+                },
+                {
+                    q: "6. Warnleuchte (Funktion), Warndreieck, Warnweste (Vorhandensein) (Karte 4 / Frage 6)",
+                    a: `<span class="section-title">Warnleuchte:</span>
+                        <ul>
+                            <li>Standfestigkeit kontrollieren (Füße ausklappen)</li>
+                            <li>CE-Siegel kontrollieren &nbsp &nbsp &nbsp &nbsp </li>
+						 <img src="4.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<li>Wellenlinien kontrollieren (nationale Betriebserlaubnis)</li>
+						 <img src="5.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<span class="section-title">Schalterstellungen:</span>
+							<li>3 Schalterstellungen:</li>
+							<ol>&nbsp "0" = AUS</ol>
+							<ol>&nbsp Warnleuchte (⚠️)</ol>
+							<ol>&nbsp Test = Taschenlampe (Dauerlicht)</ol>
+						<span class="section-title">Testfunktion:</span>
+							<li>Rhythmus der Testfunktion muss derselbe sein wie bei Funktion Warnleuchte</li>
+							<li>ist der Rhythmus verändert, sind die Batterien bald leer = austauschen</li>
+							<li>Batterien arbeiten zwischen 6-8 Stunden ohne Unterbrechung</li>
+							<li>müssen Batterien getauscht werden, dürfen nur Batterien genutzt werden, die Hersteller vorgibt</li>
+                        </ul>
+                        <span class="section-title">Warndreieck:</span>
+                        <ul>
+                            <li>Prüfsiegel auf Warndreieck kontrollieren</li>
+						<img src="6.jpg" style="width:100%; max-width:400px; margin-top:10px; border-radius:5px;">
+                            <li>E1 = geprüft in Deutschland</li>
+							<li>E13 = geprüft in Luxemburg</li>
+							<li>Dreieck aufbauen, Rückstrahler kontrollieren (sauber, nicht kaputt)</li>
+							<li>Füße ausklappen, Standfestigkeit kontrollieren</li>
+                        </ul>
+                        <span class="section-title">Warnweste:</span>
+                        <ul>
+                            <li>1 Fahrer = 1 Weste</li>
+                            <li>2 Fahrer = 2 Westen</li>
+							<li>Farben Gelb oder Orange</li>
+							<li>Weste kontrollieren</li>
+							<li>Weste und Rückstrahler dürfen nicht schmutzig oder kaputt sein</li>
+							<li>Weste muss Fahrer passen (Größe)</li>
+                        </ul>`
+                },
+                {
+                    q: "7. Funktionsprüfung der Verständigungsanlage mit Regelung der Lautstärke und Umschalten zwischen Fahrer- und Beifahrermikrofon",
+                    a: `<ul>
+                            <li>Wir haben nur ein Mikrofon (Fahrerseite)</li>
+                            <li>Schalter „AN / AUS" befindet sich direkt am Mikrofon</li>
+                            <li>Lautstärke lässt sich nur über Entfernung zwischen Mikrofon und Fahrer, oder die Lautstärke der Stimme regulieren</li>
+                            <li>Beifahrermikrofon nicht vorhanden</li>
+                            <li>Mikrofon nach Test ,„AUS"</li>
+                        </ul>`
+                }
+            ]
+        },
+        {
+    id: 2,
+    questions: [
+        {
+            q: "1. Bedienung der Schalter am Fahrtenschreiber (Karte 8 / Frage 1)",
+            a: `<ul>
+						<img src="7.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<ul>
+							<li><b>1 = Schacht für Fahrerkarte 1</li></b>
+							<li><b>2 = Schacht für Fahrerkarte 2</li></b>
+							<li><b>3 = Zeitgruppenschalter / Aktivitäten für Fahrer 1</b>
+								<ul>
+									<li>lange drücken = Schacht für Fahrerkarte 1 wird geöffnet</li>
+									<li>kurz drücken = Umschalten der Zeitgruppen / Aktivitäten
+								<ul>
+									<li>⚒️ = sonstige Arbeitszeit</li>
+									<li>⧄ = Bereitschaftszeit
+									<li>h = Pause / Ruhezeit / Arbeitsunterbrechung
+									<li>⊙ = Lenkzeit (automatisch bei Fahrt, sobald Fahrzeug über 4 km/h)</li>
+								</ul>
+								</ul>
+							<li><b>4 = Zeitgruppenschalter / Aktivitäten für Fahrer 2</b>
+								<ul>
+								<li>Bedienung wie Fahrer 1 (außer „Lenkzeit“, bei Fahrer 2 nicht vorhanden)</li>
+								</ul>
+							<li><b>5 = Schublade für Druckerpapier</b>
+								<ul>
+								<li>immer eine Rolle Papier Vorrat
+								<li>richtige Größe beachten</li>
+								</ul>
+							<li><b>6 = USB- Schnittstelle zum Datentransfer</b>
+							<li><b>7 = Menüleiste</b>
+								<ul>
+								<li>"↩️" = im Menü zurück
+								<li>"⬆️" = im Menü nach oben blättern
+								<li>"⬇️" = im Menü nach unten blättern
+								<li>"OK"= ins Menü hineingehen; Eingabe bestätigen
+								</ul>
+						</ul>`
+        },
+		{
+            q: "2. Prüfen der Druckwarneinrichtung (Karte 7 / Frage 2)",
+            a: `<ul>
+						<ul>
+							<img src="8.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<li>Fahrzeug hat 2 Druckwarneinrichtungen:</li>
+							<img src="9.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<li>diese 3 Anzeigen werden <span style="color: red;">ROT</span>, sobald der Vorratsdruck auf 6 bar (oder weniger) absinkt</li>
+							<img src="10.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<li>Kontrolllampe „Vorratsdruck gering" erscheint</li>
+						</ul>
+						<ul>
+							<li><b>Druckwarneinrichtung testen:</b>
+								<ul>
+								<li>Motor ,AUS" = Luftpresser (Kompressor) produziert keine neue Druckluft 
+								<li>Bremspedal 15-20 mal kräftig betätigen = Druckluftvorrat wird reduziert
+								<li>ist Druckluftvorrat auf 6 bar abgesunken erscheint Druckwarneinrichtung
+								<li>wenn Druckwarneinrichtung leuchtet, kann Fahrzeug nicht fahren = Sicherungsdruck
+								<li>um Vorratsdruck wieder aufzubauen = Motor starten (anlassen), Motordrehzahl erhöhen(Gas geben)
+								<li>Fahrzeug darf bewegt werden, wenn Abschaltdruck erreicht ist (Zisch-Geräusch)</li>
+						</ul>
+						</ul>`
+		},
+		{
+            q: "3. Prüfen der Tragfähigkeit und der Höchstgeschwindigkeit der Reifen anhand der Zulassungsbescheinigung Teil 1 (Fahrzeugschein)",
+            a: `<ul>
+						<img src="3-3.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<img src="3-4.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+                            <p>Zulassungsbescheinigung Teil 1 (ZB 1) nehmen und Tabellen „Tragfähigkeits-Index" und „Höchstgeschwindigkeits-Index"</p>
+							<p>ZB 1 (Zeilen 15.1 und 15.2) mit Aufdruck auf Reifen vergleichen</p>
+							<ul style="list-style-type: '– ';"><b>295/80 R 22,5 &nbsp &nbsp<span class="highlight-red">152/ -- J</span> &nbsp &nbsp &nbsp</b></ul>
+							<ul style="list-style-type: '– ';"><b>275/70 R 22,5 &nbsp &nbsp<span class="highlight-red">--/145 J</span> &nbsp &nbsp &nbsp</b></ul>
+						<p>Zeile 15.1:</p>
+						<ul style="list-style-type: '– ';">
+						<li>1. Achse</li>
+						<li>152 = Tragfähigkeits-Index für <b>Einzelbereifung</b> (3.550 kg)</li>
+						<li>J = Höchstgeschwindigkeits-Index (100 km/h)</li>
+						</ul>
+						<p>Zeile 15.2:</p>
+						<ul style="list-style-type: '– ';">
+						<li>145 = Tragfähigkeits-Index für <b>Zwillingsbereifung</b> (2.900 kg)</li>
+						<li>J = Höchstgeschwindigkeits-Index (100 km/h)</li>
+						</ul>
+						<p>Index an Reifen ist höher = höher / mehr ist erlaubt, da mehr Reserve</p>
+						<p><b>ein Zwillingsreifen allein</b> darf weniger Gewicht aufnehmen, als ein Reifen Einzelbereifung</p>
+						<p><b>zwei Zwillingsreifen zusammen</b> nehmen mehr Gewicht auf, als ein Reifen Einzelbereifung</p>
+						<p>Begründung:</p>
+						<ul style="list-style-type: '– ';">
+						<li>bei zu viel Gewicht der Zwillingsbereifung würden Reifen aneinander reiben</li>
+						<li>Reifen würden beschädigt werden</li>
+						<li>es könnte keine Luft zur Kühlung zwischen Reifen kommen</li>
+						</ul>
+                </ul>`
+		},
+		{
+            q: "4. Hupe / Lichthupe / Warnblinklicht / Seitenmarkierungsleuchten, Funktion prüfen (Karte 4 / Frage 4)",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+						<li>Zündung anschalten</li>
+						<li>Standlicht einschalten = damit sind Seitenmarkierungsleuchten eingeschaltet</li>
+						<li>Position Hupe zeigen, auf Wunsch betätigen</li>
+						<li>Lichthupe betätigen</li>
+						<li>Warnblinklicht einschalten</li>
+						<li>Kontrollgang um Fahrzeug = Funktion aller Beleuchtungseinrichtungen kontrollieren</li>
+					</ul>
+						<p>Seitenmarkierungsleuchte = 2 Funktionen:</p>
+						<ul style="list-style-type: '– ';">
+						<li>leuchtet bei Dunkelheit</li>
+						<li>neben der Leuchte = Rückstrahler</li>
+						</ul>
+				<ul>`
+		},
+		{
+            q: "5. Sichtprüfung von Kühler und Kühlleitungen, Kontrolle des Kühlflüssigkeitsstandes (Karte 1/ Frage 5)",
+                    a: `<ul>
+						 <img src="3.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<p><p style="color: red;">Vorratsbehälter für Kühlflüssigkeit</p>
+							<p><p style="color: blue;">Knopf zur Bedienung der Pumpe, um Kühlflüssigkeit ins Kühlsystem nachzufüllen</p>
+							<p><p style="color: purple;">Anzeige für Minimum / Maximum</p>
+						<span class="section-title">Vorrat kontrollieren:</span>
+							<li>Kühlflüssigkeit muss zwischen min / max stehen</li>
+                            <li>ist zu wenig Kühlflüssigkeit, Knopf für Pumpe betätigen, bis Füllstand zwischen min / max erreicht ist</li>
+							<li>immer kontrollieren, ob sich ausreichend Kühlflüssigkeit im Vorratsbehälter befindet</li>
+                        </ul>
+                        <span class="section-title">ACHTUNG!</span>
+                        <ul>
+                        <span class="section-title">Ist das Fahrzeug überhitzt wegen mangelnder Kühlflüssigkeit:</span>
+                            <li>Fahrzeug mindestens 15 Minuten abkühlen lassen (Motor „,AUS")</li>
+                            <li>vorsichtig den Deckel des Vorratsbehälters öffnen (<span style="color: red;">Handschuhe</span> anziehen), da die Flüssigkeit siedet und herausspritzen kann</li>
+							<li>vorsichtig in kleinen Schlucken nachfüllen (Temperaturunterschied „heiß & kalt" kann zu Spannungen im Vorratsbehälter führen (,Eiswürfel") = es können Mikro- Risse entstehen</li>
+							<li>Kühlflüssigkeit = gelbe Farbe</li>
+							<li>wenn keine Kühlflüssigkeit = normales Wasser</li>
+                        </ul>
+						<span class="section-title">Kühlleitungen kontrollieren:</span>
+                        <ul>
+                            <li>die Leitungen dürfen nicht undicht, gerissen oder porös sein</li>
+                            <li>die Schellen müssen fest sitzen; dürfen nicht defekt oder verrostet sein</li>
+                            <li>bei Defekt / Rost = austauschen</li>
+						<ul>
+						<span class="section-title">Kühler kontrollieren:</span>
+							<li>der Kühler darf nicht nass, verrostet, beschädigt oder schmutzig sein</li>
+							<li>es darf sich kein Müll (Papier, Laub) vor dem Kühler befinden, sonst kann Luft (heiß /kalt) nicht zirkulieren</li>
+							<li>Ventilator kontrollieren = muss ohne Probleme arbeiten</li>
+						<ul>
+						<span class="section-title">unter dem Fahrzeug:</span>
+							<li>unter das Fahrzeug sehen, ob Kühlflüssigkeit austritt = Bildung einer Wasserpfütze</li>
+						<img src="3-1.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						</ul>`
+		},
+		{
+            q: "6. Unterlegkeile (Anzahl, Unterbringung) (Karte 10 / Frage 6)",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+						<li>2 Achsen &ensp; &ensp; &ensp; &ensp; &ensp; &ensp;= 1 Unterlegkeil</li>
+						<li>mehr als 2 Achsen &ensp;= 2 Unterlegkeile</li>
+						<li>sind nur gesetzliches Minimum, mehr Unterlegkeile sind erlaubt</li>
+					</ul>
+						<p><b>Unterlegkeile kontrollieren:</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>Größe der Unterlegkeile muss passen zur Größe der Reifen</li>
+						<li>Rundung der Keile muss zur Rundung der Reifen passen</li>
+						<li>Keile dürfen nicht defekt sein</li>
+						<li>müssen eine DIN-Nummer haben</li>
+						<li>sind Unterlegkeile außerhalb des Fahrzeugs angebracht, müssen sie doppelt gesichert sein</li>
+					</ul>
+					<p><b>Benutzen der Unterlegkeile:</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>steht Fahrzeug gerade auf Ebene = Unterlegkeil hinter Rad der Antriebsachse</li>
+						<li>steht Fahrzeug auf Gefälle = Unterlegkeil vor Rad der Antriebsachse</li>
+						<li>steht Fahrzeug auf Steigung = Unterlegkeil hinter Rad der Antriebsachse</li>
+					</ul>
+					<p><b>ACHTUNG!</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>Unterlegkeil nie an Lenkachse anlegen!</li>
+					</ul>
+				<ul>`
+		},
+		{
+            q: "7. Überprüfung der Notausstiege und Nothämmer",
+            a: `<ul>
+						<p><b>Fahrzeug hat 9 Notausstiege</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>5 Scheiben</li>
+						<li>2 Dachluken</li>
+						<li>2 Türen</li>
+					</ul>
+					<p><b>Fahrzeug hat 12 Nothämmer</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>6 neben den Scheiben</li>
+						<li>6 hinter Fahrersitz</li>
+					</ul>
+					<p><b>Notausstiege erkennt man an Kennzeichnung „Notausstieg"</b></p>
+					<img src="11.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<img src="12.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+				<ul>`
+		},
+        ]
+		},
+		{
+    id: 3,
+    questions: [
+		{
+            q: "1. Bedeutung der Kontrolllampen; Ausfall des Geräts",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+						<li>Fahrzeug hat digitales EG-Kontrollgerät</li>
+						<li>fällt das Gerät aus, oder bei Problem mit Fahrerkarte (keine Karte eingelegt, falsch eingelegt) erscheint im Display ein gelbes <b> <span style="color: #FFDE21;">T</span></b></li>
+					</ul>
+					<img src="13.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+				<ul>`
+        },
+		{
+            q: "2. Sichtprüfung der Betriebs- und Feststellbremse (Karte 9 / Frage 2)",
+            a: `<ul>
+					<p><b>Fahrzeug hat Scheibenbremse</b></p>
+					<img src="14.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<p><b>Kontrolle der Bremsscheibe:</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>Bremsscheibe muss silber sein</li>
+						<li>darf nicht:</li>
+					<ul>
+						<li>rostig sein = Bremsklötze erreichen Bremsscheibe nicht, Bremse arbeitet nicht</li>
+						<li>blau verfärbt sein = Bremsscheibe war überhitzt, Bremse arbeitet nicht ausreichend / nicht mehr</li>
+					</ul>
+						<li>keine Risse</li>
+						<li>Verschleiß überprüfen = Grat am äußeren Rand der Bremsscheibe. Teile die Kraft Auf die Räder. Display im Bordmenü-Sembol bus - (ESB), Bremsbelagverschließ</li>
+						<li>Bremsscheiben können mit Taschenlampe angestrahlt werden = in Felge hineinleuchten</li>
+						<li>kann keine Sichtkontrolle erfolgen, dann zur genaueren Kontrolle in Werkstatt auf die Grube / den Kanal fahren</li>
+					</ul>
+					<p><b>Feststellbremse Funktion prüfen:</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>Motor starten</li>
+						<li>Fahrstufe „D" einlegen, mit gezogener Feststellbremse versuchen anzufahren</li>
+						<li>Feststellbremse muss Fahren verhindern</li>
+					</ul>
+				<ul>`
+        },
+		{
+            q: "3. Sichtprüfung des Sitzes der Radmuttern",
+            a: `<ul>
+					<img src="15.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<p>Alle Radmuttern vorhanden sitzt</p>
+					<ul style="list-style-type: '– ';">
+						<li>Radkappen entfernen</li>
+						<li>alle Radmuttern müssen vorhanden sein</li>
+						<li>müssen den gleichen Abstand der Radmutter haben (sichtbare Gewindeumdrehungen)</li>
+						<li>löst sich eine Radmutter:</li>
+					<ul>
+						<li>kann hinter der Radmutter Rostnase (Rostwasser) zu sehen sein</li>
+						<li>kann sich eine Art ,Mehl" um die Radmutter befinden (feiner Metallabrieb)</li>
+					</ul>
+					<p><b>Radmutter kontrollieren:</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>um Festigkeit der angezogenen Radmutter zu kontrollieren, oder Radmutter nachzuziehen = <b>Drehmomentschlüssel</b> benutzen</li>
+						<li>um rechtzeitig das Lösen einer Radmutter zu erkennen, können Indikatoren verwendet werden</li>
+					<img src="16.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">	
+					</ul>
+				<ul>`
+        },
+		{
+            q: "4. Standlicht, Abblendlicht, Fernlicht, Umrissleuchten vorn prüfen (Karte 5 / Frage 4)",
+            a: `<ul>
+					<img src="17.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<ul style="list-style-type: '– ';">
+						<li>Standlicht einschalten = außen Funktion prüfen</li>
+						<li>Abblendlicht einschalten = außen Funktion prüfen</li>
+						<li>Fernlicht einschalten = außen Funktion prüfen</li>
+						<img src="18.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<li>Umrissleuchte vorn prüfen</li>
+					<img src="13.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<li>ist eine Beleuchtung defekt = Leuchtmittel tauschen, oder Werkstatt aufsuchen (bsw. bei LED)</li>
+					</ul>
+				<ul>`
+        },
+		{
+            q: "5. Kontrolle des Motorölstandes (Karte 6 / Frage 5)",
+            a: `<ul>
+					<img src="19.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<ul style="list-style-type: '– ';">
+						<li>kein Ölmessstab am Fahrzeug</li>
+						<li>Kontrolle Motorölstand nur noch im Display möglich</li>
+						<li>über Menütasten an linker Lenkradspeiche in Menü gehen</li>
+					</ul>
+					<p><b>Motoröl "klassisch" kontrollieren:</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>bei kaltem Motor / Motor länger als 15 Minuten AUS</li>
+						<li>auf ebenem Untergrund = sonst wird Ölstand verfälscht</li>
+						<li>zum Heck des Fahrzeugs gehen, Heckklappe öffnen</li>
+						<li>Ölmessstab herausziehen, dabei mit einem Tuch reinigen</li>
+						<li>ACHTUNG! es darf kein Öl auf den Boden tropfen (Umweltverschmutzung)</li>
+						<li>Ölmessstab wieder einführen</li>
+						<li>erneut herausziehen</li>
+						<li>Ölstand ablesen = muss zwischen Minimum / Maximum liegen</li>
+						<li>liegt Ölstand unter Minimum = ÖI nachfüllen; immer 0,5 Liter, dann erneut messen; Vorgang wiederholen, bis optimaler Ölstand erreicht ist</li>
+						<li>nur Öl verwenden, den Hersteller vorgibt</li>
+					</ul>
+				<ul>`
+        },
+		{
+            q: "6. Verbandkasten (Unterbringung) (nicht bei Klasse T)",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+						<li>Fahrzeug hat mehr als 22 Sitzplätze = 2 Verbandkästen</li>
+					</ul>
+					<p><b>Kontrolle Verbandkasten:</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>DIN-Nummer kontrollieren = muss auf Verbandkasten selbst aufgedruckt sein</li>
+						<li>Ablaufdatum kontrollieren:</li>
+					<ul>
+						<li>verschiedene Materialien = verschiedene Ablaufdaten</li>
+						<li>ist ein Produkt abgelaufen = entfernen und erneuern</li>
+					</ul>
+						<li>Vollständigkeit kontrollieren:</li>
+					<ul>
+						<li>im Verbandkasten ist Inhaltsliste = vergleichen</li>
+						<li>fehlt ein Produkt = hinzufügen</li>
+						<li>wurde ein Produkt benutzt = durch ein neues ersetzen</li>
+						<li>wurden mehrere Produkte benutzt = alle ersetzen, oder neuen Verbandkasten holen</li>
+					</ul>	
+					</ul>
+				<ul>`
+        },
+		{
+            q: "7. Erläutern oder Demonstrieren des Auswechselns einer Glühlampe im Scheinwerfer (gilt nicht für Gasentladungslampe)",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+						<li>Bugklappe öffnen</li>
+					<img src="20.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<li>Hebel betätigen und Scheinwerfer vorsichtig ausklappen</li>
+					<img src="21.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<li>Verschlussdeckel öffnen</li>
+					<img src="22.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<li>Glühlampensockel gegen Uhrzeiger herausdrehen</li>
+					<img src="23.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<li>Glühlampe aus Sockel herausziehen</li>
+					<img src="24.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<li>ACHTUNG!</li>
+						<li>Glas der Glühlampe (Leuchtmittel) nicht mit Fingern anfassen, damit Glas nicht fettig wird = Fett brennt, Glühlampe geht schneller kaputt</li>
+						<li>Tuch benutzen = Glas schützen</li>
+						<li>neue Glühlampe (Leuchtmittel) einsetzen</li>
+					<ul>
+						<li>selbe Bauart (selbe Volt, Watt, Ampere, Farbe)</li>
+					</ul>
+						<li>Glühlampensockel einsetzen</li>
+						<li>FUNKTIONS-PROBE</li>
+						<li>Verschlussdeckel schließen, Scheinwerfer einklappen, Bugklappe schließen</li>
+					</ul>
+				<ul>`
+        },
+		]
+		},
+		{
+    id: 4,
+    questions: [
+		{
+            q: "1. Benennen der Symbole auf dem Fahrtenschreiber (Karte 9 / Frage 1)",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+        <li>es gibt viele Symbole</li>
+        <li>4 Haupt-Symbole</li>
+        <li>kurz drücken = Umschalten der Zeitgruppen / Aktivitäten
+            <ul>
+                <li>&#8857; = Lenkzeit (automatisch bei Fahrt, sobald Fahrzeug über 4 km/h)</li>
+                <li>&#9874; = sonstige Arbeitszeit</li>
+                <li>&#10692; = Bereitschaftszeit</li>
+                <li>h = Pause / Ruhezeit / Arbeitsunterbrechung</li>
+            </ul>
+        </li>
+        <li>Symbol für Fahrerkarte (sieht aus wie eine Tür)</li>
+    </ul>
+				<ul>`
+        },
+		{
+            q: "2. Prüfen, ob Pedalwege frei sind (Karte 10 / Frage 2)",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+					<li>alle Pedale treten, fühlen ob Gegenstand unter Pedalen liegt</li>
+					<li>mit Taschenlampe unter Pedale leuchten = Sichtprüfung</li>
+					<li>Gegenstände (Flaschen, Steine, Müll ...) entfernen</li>
+					<li>links, rechts und hinter dem Fahrersitz nach Gegenständen sehen</li>
+					<li>Gegenstände entfernen</li>
+				</ul>`
+        },
+		{
+            q: "3. Prüfen des Reifenzustandes / Reifendruckes (Profil, Beschädigung, Fremdkörper)",
+            a: `<ul>
+			<h3>Profil:</h3>
+    <ul>
+        <li>man <span class="bold">kann</span> Lenkung einschlagen</li>
+        <li>Mindest-Profiltiefe = 1,6 mm</li>
+        <li>bei Bus besser 3,0 mm, dann Reifen wechseln</li>
+        <li>Mindest-Profiltiefe kann am TWI abgelesen werden</li>
+		<img src="24.1.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+    </ul>
+
+    <h3>Beschädigung:</h3>
+    <ul>
+        <li>Reifen darf keine Beschädigung haben im Profil / an der Flanke
+            <ul>
+                <li>keine Risse</li>
+                <li>kein Gummi ausgebrochen</li>
+                <li>keine Ausbeulung = Reifen ist von innen beschädigt</li>
+                <li>Reifen darf nicht porös sein</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>Fremdkörper:</h3>
+    <ul>
+        <li>Profil auf Fremdkörper kontrollieren
+            <ul>
+                <li>Steine, Glas, Schrauben, Nägel</li>
+            </ul>
+        </li>
+        <li>Schrauben im Reifen lassen = zur Werkstatt fahren</li>
+    </ul>
+
+    <h3>Zwillingsbereifung:</h3>
+    <ul>
+        <li>es kann nur äußerer Zwilling kontrolliert werden</li>
+        <li>Hilfsmittel = Hammer
+            <ul>
+                <li>mit Hammer auf inneren und äußeren Zwilling schlagen = Hörprobe (gleicher &bdquo;Sound&ldquo;, gleicher Luftdruck)</li>
+                <li>ACHTUNG! = ist nur Kurz-Kontrolle</li>
+                <li>mit dem Hammer-Kopf zwischen die Zwillinge gehen, auf Fremdkörper kontrollieren</li>
+            </ul>
+        </li>
+        <li>befindet sich Stein zwischen Zwillingsreifen = in Werkstatt fahren</li>
+        <li>Werkstatt:
+            <ul>
+                <li>läßt Luft aus beiden Reifen</li>
+                <li>entfernt Stein</li>
+                <li>kontrolliert Reifen auf Beschädigung = sind Reifen beschädigt = Reifenwechsel</li>
+                <li>pumpt neue Luft auf = wenn Reifen nicht beschädigt sind</li>
+            </ul>
+        </li>
+    </ul>
+			</ul>`
+        },
+		{
+            q: "4. Hupe / Lichthupe / Warnblinklicht / Seitenmarkierungsleuchten, Funktion prüfen (Karte 2 / Frage 4)",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+						<li>Zündung anschalten</li>
+						<li>Standlicht einschalten = damit sind Seitenmarkierungsleuchten eingeschaltet</li>
+						<li>Position Hupe zeigen, auf Wunsch betätigen</li>
+						<li>Lichthupe betätigen</li>
+						<li>Warnblinklicht einschalten</li>
+						<li>Kontrollgang um Fahrzeug = Funktion aller Beleuchtungseinrichtungen kontrollieren</li>
+					</ul>
+						<p>Seitenmarkierungsleuchte = 2 Funktionen:</p>
+						<ul style="list-style-type: '– ';">
+						<li>leuchtet bei Dunkelheit</li>
+						<li>neben der Leuchte = Rückstrahler</li>
+						</ul>
+				<ul>`
+        },
+		{
+            q: "5. Dichtheit der Kraftstoffanlage, Kraftstoffleitung, Kraftstoffvorrat prüfen",
+            a: `<ul>
+			<img src="13.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+			<h3>Kraftstoffvorrat:</h3>
+    <ul>
+        <li>Zündung &bdquo;AN&ldquo;</li>
+        <li>Füllstände ablesen</li>
+
+        <li class="spacer">ist Anzeige defekt = zu erkennen, wenn sich Nadel in Anzeige lange nicht bewegt</li>
+        <li>Stock nehmen = in Tank einführen, herausziehen</li>
+        <li>Flüssigkeit am Stock zeigt Rest-Inhalt an</li>
+
+        <li class="spacer">Zündschlüssel abziehen / mitnehmen</li>
+        <li>Tankklappe AdBlue öffnen</li>
+        <li>Verschluss kontrollieren:
+            <ul>
+                <li>geschlossen</li>
+                <li>nicht defekt</li>
+                <li>kein Austritt von Flüssigkeit</li>
+            </ul>
+        </li>
+        <li>Tankklappe verschließen</li>
+		<li>Tankklappe Kraftstoff (Diesel) öffnen</li>
+        <li>Verschluss kontrollieren:
+            <ul>
+                <li>geschlossen</li>
+                <li>nicht defekt</li>
+                <li>kein Austritt von Flüssigkeit</li>
+            </ul>
+        </li>
+        <li>Tankklappe verschließen</li>
+        
+        <li class="spacer">unter beide Tankeinfüll-Stutzen sehen = kein Flüssigkeitsaustritt</li>
+    </ul>
+
+    <h3>Kraftstoffleitung:</h3>
+    <ul>
+        <li>zum Heck gehen = mehrmals unter Fahrzeug sehen = kein Flüssigkeitsaustritt</li>
+    </ul>
+
+    <h3>Kraftstoffanlage:</h3>
+    <ul>
+        <li>Heck-Klappe öffnen</li>
+        <li>tief einatmen = riechen = Diesel &bdquo;stinkt&ldquo; = tritt Diesel aus, kann man riechen</li>
+        <li>Kraftstofffilter kontrollieren = nicht nass, nicht defekt</li>
+        <li>unter Fahrzeug sehen = kein Flüssigkeitsaustritt</li>
+        <li>Seitenklappe hinten links öffnen = Standheizung kontrollieren (arbeitet mit Diesel)</li>
+        <li>unter Fahrzeug sehen = kein Flüssigkeitsaustritt</li>
+        
+        <li class="spacer">alle offenen Klappen schließen / verriegeln</li>
+    </ul>
+			<ul>`
+        },
+		{
+            q: "6. Warnleuchte (Funktion), Warndreieck, Warnweste (Vorhandensein) (Karte 1 / Frage 6)",
+                    a: `<span class="section-title">Warnleuchte:</span>
+                        <ul>
+                            <li>Standfestigkeit kontrollieren (Füße ausklappen)</li>
+                            <li>CE-Siegel kontrollieren &nbsp &nbsp &nbsp &nbsp </li>
+						 <img src="4.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<li>Wellenlinien kontrollieren (nationale Betriebserlaubnis)</li>
+						 <img src="5.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<span class="section-title">Schalterstellungen:</span>
+							<li>3 Schalterstellungen:</li>
+							<ol>&nbsp "0" = AUS</ol>
+							<ol>&nbsp Warnleuchte (⚠️)</ol>
+							<ol>&nbsp Test = Taschenlampe (Dauerlicht)</ol>
+						<span class="section-title">Testfunktion:</span>
+							<li>Rhythmus der Testfunktion muss derselbe sein wie bei Funktion Warnleuchte</li>
+							<li>ist der Rhythmus verändert, sind die Batterien bald leer = austauschen</li>
+							<li>Batterien arbeiten zwischen 6-8 Stunden ohne Unterbrechung</li>
+							<li>müssen Batterien getauscht werden, dürfen nur Batterien genutzt werden, die Hersteller vorgibt</li>
+                        </ul>
+                        <span class="section-title">Warndreieck:</span>
+                        <ul>
+                            <li>Prüfsiegel auf Warndreieck kontrollieren</li>
+						<img src="6.jpg" style="width:100%; max-width:400px; margin-top:10px; border-radius:5px;">
+                            <li>E1 = geprüft in Deutschland</li>
+							<li>E13 = geprüft in Luxemburg</li>
+							<li>Dreieck aufbauen, Rückstrahler kontrollieren (sauber, nicht kaputt)</li>
+							<li>Füße ausklappen, Standfestigkeit kontrollieren</li>
+                        </ul>
+                        <span class="section-title">Warnweste:</span>
+                        <ul>
+                            <li>1 Fahrer = 1 Weste</li>
+                            <li>2 Fahrer = 2 Westen</li>
+							<li>Farben Gelb oder Orange</li>
+							<li>Weste kontrollieren</li>
+							<li>Weste und Rückstrahler dürfen nicht schmutzig oder kaputt sein</li>
+							<li>Weste muss Fahrer passen (Größe)</li>
+                        </ul>`
+        },
+		{
+            q: "7. Funktionsprüfung der Türbetätigungsanlage",
+            a: `<ul>
+			<h3>Türbetätigung innen:</h3>
+    <ul>
+        <li>1. Tür öffnen / schließen</li>
+        <li>2. Tür öffnen / schließen</li>
+    </ul>
+
+    <h3>Türbetätigung außen:</h3>
+    <ul>
+        <li>1. Tür öffnen / schließen</li>
+    </ul>
+
+    <h3>Reversiereinrichtung (Einklemmschutz) kontrollieren:</h3>
+    <ul>
+        <li>Hilfsmittel nehmen</li>
+        <li>1. Tür von außen schließen</li>
+        <li>Hilfsmittel zwischen beide Türflügel halten</li>
+        <li>Tür muss automatisch wieder öffnen, sobald Widerstand bemerkt wird</li>
+    </ul>
+			<ul>`
+        },
+		]
+		},
+		{
+    id: 5,
+    questions: [
+		{
+            q: "1. Überprüfen eines Schaublattes bzw. eines Ausdruckes des Fahrtenschreibers: a) Wie viele Kilometer wurden gefahren? b) Wie lange war die Fahrtunterbrechung? c) Nach wie vielen Stunden wurde die erste Pause eingelegt? d) Welche Höchstgeschwindigkeit wurde gefahren bzw. wurden beim digitalen Fahrtenschreiber Geschwindigkeitsüberschreitungen dokumentiert? (Karte 10 / Frage 1)",
+            a: `<ul>
+					<h3>a) Wie viele Kilometer wurden gefahren?</h3>
+					<img src="25.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<h3>b) Wie lange war die Fahrtunterbrechung?</h3>
+					<img src="26.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<h3>c) Nach wie vielen Stunden wurde die erste Pause eingelegt?</h3>
+					<img src="27.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<h3>d) Welche Höchstgeschwindigkeit wurde gefahren bzw. wurden beim digitalen Fahrtenschreiber Geschwindigkeitsüberschreitungen dokumentiert?</h3>
+					<img src="28.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+			</ul>`
+        },
+		{
+            q: "2. Vorratsdruck aufbauen, Fahrbereitschaft aufbauen (Karte 6 / Frage 2)",
+            a: `<ul>
+					<img src="2.1.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<ul>
+        <li>über Menü-Tasten an linker Lenkradspeiche in Bordmenü gehen</li>
+        <li>Symbol „Bus“ suchen</li>
+        <li>Anzeige Druckluft suchen</li>
+        <li>Druckluft ablesen</li>
+    </ul>
+
+    <h2>Demonstrieren des Aufbaus Vorratsdruck:</h2>
+
+    <ul>
+        <li>Motor <span class="highlight">„AUS“</span> = Luftpresser (Kompressor) produziert keine neue Druckluft</li>
+        <li>Bremspedal 15-20 mal kräftig betätigen = Druckluftvorrat wird reduziert</li>
+        <li>ist Druckluftvorrat auf 6 bar abgesunken erscheint Druckwarneinrichtung</li>
+        <li>wenn Druckwarneinrichtung leuchtet, kann Fahrzeug nicht fahren = <b>Sicherungsdruck</b></li>
+        <li>um Vorratsdruck wieder aufzubauen = Motor starten (anlassen), Motordrehzahl erhöhen (Gas geben)</li>
+        <li>Fahrzeug darf bewegt werden, wenn <b>Abschaltdruck</b> erreicht ist (Zisch-Geräusch)</li>
+        <li>Fahrbereitschaft hergestellt bei 12 bar (1200 hPa = Anzeige in Display)</li>
+    </ul>
+			</ul>`
+        },
+		{
+            q: "3. Prüfen der Felgen auf Beschädigung",
+            a: `<ul>
+					<ul>
+        <li>Felgen dürfen keine Beschädigung haben
+            <ul>
+                <li>keine Risse</li>
+                <li>kein Rost</li>
+                <li>Bolzenlöcher von Radschrauben nicht ausgeschlagen</li>
+                <li>keine Verformung (weil auf Bürgersteig aufgesetzt)</li>
+            </ul>
+        </li>
+        <li>Felge muss guten Rundlauf haben (nicht „eiern“) = kann bei Fahrt über Spiegel beobachtet werden</li>
+    </ul>
+			</ul>`
+        },
+		{
+            q: "4. Standlicht, Abblendlicht, Fernlicht, Umrissleuchten vorn prüfen (Karte 3 / Frage 4)",
+            a: `<ul>
+					<img src="17.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<ul style="list-style-type: '– ';">
+						<li>Standlicht einschalten = außen Funktion prüfen</li>
+						<li>Abblendlicht einschalten = außen Funktion prüfen</li>
+						<li>Fernlicht einschalten = außen Funktion prüfen</li>
+						<img src="18.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<li>Umrissleuchte vorn prüfen</li>
+					<img src="13.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<li>ist eine Beleuchtung defekt = Leuchtmittel tauschen, oder Werkstatt aufsuchen (bsw. bei LED)</li>
+					</ul>
+				<ul>`
+        },
+		{
+            q: "5. Sichtprüfung des Antriebs von Nebenaggregaten (z.B. Lichtmaschine, Servo- und Wasserpumpe) (Karte 7 / Frage 5)",
+            a: `<ul>
+					<img src="29.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">	
+					<h2>Antrieb von Nebenaggregaten:</h2>
+
+    <ul>
+        <li>Antrieb = Keil-Rippen-Riemen</li>
+        <li>Keilriemen:
+            <ul>
+                <li>nicht gerissen</li>
+                <li>keine Schnitte</li>
+                <li>nicht porös</li>
+                <li>nicht ölig sein</li>
+                <li>nicht ausgefranst</li>
+                <li>keine Teile lösen</li>
+            </ul>
+        </li>
+        <li>auf Spannung prüfen:
+            <ul>
+                <li>auf Keilriemen drücken
+                    <ul>
+                        <li>darf max 1 cm eingedrückt werden können</li>
+                    </ul>
+                </li>
+                <li>Keilriemen drehen
+                    <ul>
+                        <li>darf max 45° gedreht werden können</li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+        <li>zu viel Spannung = Lager werden geschädigt</li>
+        <li>zu wenig Spannung = Keilriemen rutscht durch</li>
+    </ul>
+			</ul>`
+        },
+		{
+            q: "6. Zustand der Scheiben und Spiegel (Sauberkeit, Beschädigung) (Karte 9 / Frage 6)",
+            a: `<ul>
+	    <h3>Spiegel:</h3>
+    <ul>
+        <li>fester Sitz</li>
+        <li>sauber</li>
+        <li>keine Beschädigung</li>
+    </ul>
+
+    <h3>Scheiben:</h3>
+    <ul>
+        <li>sauber</li>
+        <li>keine Beschädigung</li>
+    </ul>
+
+    <h3>Beschädigungen:</h3>
+    <ul>
+        <li>Risse = Scheibe tauschen = bei Bodendelle / Temperaturunterschiede (heiß / kalt) kann Riss wandern</li>
+        <li><span class="highlight">Steinschläge:</span>
+            <ul>
+                <li>befindet sich Steinschlag im Sichtfeld des Fahrers = Scheibe tauschen</li>
+                <li>befindet sich Steinschlag außerhalb des Sichtfeldes = Scheibe kann bleiben, muss aber von Spezialwerkstatt ausgebessert werden</li>
+            </ul>
+        </li>
+    </ul>
+			<ul>`
+        },
+		{
+            q: "7. Erläutern oder Demonstrieren des Auswechselns einer Lampe in Brems-, Blinkoder Schlussleuchte",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+					<li>Brems- Blink- oder Schlussleuchte können nicht selbst ausgewechselt werden = LED</li>
+					<li>bei Defekt in Werkstatt fahren = wechseln lassen</li>
+				</ul>
+				<ul>`
+        },
+		]
+		},
+		{
+    id: 6,
+    questions: [
+		{
+            q: "1. Ausfüllen eines Schaublattes des analogen Fahrtenschreibers bzw. Abmelden am digitalen Fahrtenschreiber am Ende einer Fahrt",
+            a: `<ul>
+				<ul>
+        <li>Motor „AUS“</li>
+        <li>Zündung bleibt „AN“</li>
+        <li>mit Zeitgruppenschalter / Aktivitäts-Taste Fahrer 1:
+            <ul class="nested">
+                <li><b>kurz drücken</b> bis Symbol „<b> h </b>„ (Pause / Ruhezeit) erscheint</li>
+                <li><b>lang drücken</b> = Befehl „Karte auswerfen“
+                    <ul class="nested">
+                        <li>aktuelles Land wählen („D“ = Deutschland)</li>
+                        <li>wählen Tageswert „Ja“ oder „Nein“</li>
+                        <li>Karte wird ausgeworfen</li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+    </ul>
+			</ul>`
+        },
+		{
+            q: "2. Vorratsdruck aufbauen, Fahrbereitschaft aufbauen (Karte 5 / Frage 2)",
+            a: `<ul>
+					<img src="2.1.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<ul>
+        <li>über Menü-Tasten an linker Lenkradspeiche in Bordmenü gehen</li>
+        <li>Symbol „Bus“ suchen</li>
+        <li>Anzeige Druckluft suchen</li>
+        <li>Druckluft ablesen</li>
+    </ul>
+
+    <h2>Demonstrieren des Aufbaus Vorratsdruck:</h2>
+
+    <ul>
+        <li>Motor <span class="highlight">„AUS“</span> = Luftpresser (Kompressor) produziert keine neue Druckluft</li>
+        <li>Bremspedal 15-20 mal kräftig betätigen = Druckluftvorrat wird reduziert</li>
+        <li>ist Druckluftvorrat auf 6 bar abgesunken erscheint Druckwarneinrichtung</li>
+        <li>wenn Druckwarneinrichtung leuchtet, kann Fahrzeug nicht fahren = <b>Sicherungsdruck</b></li>
+        <li>um Vorratsdruck wieder aufzubauen = Motor starten (anlassen), Motordrehzahl erhöhen (Gas geben)</li>
+        <li>Fahrzeug darf bewegt werden, wenn <b>Abschaltdruck</b> erreicht ist (Zisch-Geräusch)</li>
+        <li>Fahrbereitschaft hergestellt bei 12 bar (1200 hPa = Anzeige in Display)</li>
+    </ul>
+			</ul>`
+        },
+		{
+            q: "3. Prüfung der Reserveradsicherung",
+            a: `<div class="guide-card" style="margin-top: 20px;">
+    <ul>
+        <li>unser Fahrzeug hat kein Reserverad</li>
+        <li>hätten wir ein Reserverad = <span class="important">doppelte Sicherung kontrollieren</span></li>
+        <li style="margin-top: 15px;">Reserverad:
+            <ul class="nested">
+                <li>Mindest-Profiltiefe</li>
+                <li>Luftdruck</li>
+                <li>Beschädigungen</li>
+                <li>Alter</li>
+                <li>Größe / Tragfähigkeit / Höchstgeschwindigkeit</li>
+            </ul>
+        </li>
+    </ul>
+</div>`
+        },
+		{
+            q: "4. Kontrolllampen benennen oder Kontrollsysteme aktivieren und an zwei Beispiel enerläutern (Karte 10 / Frage 4)",
+            a: `<img src="30.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+			<div class="guide-card" style="margin-top: 20px;">
+    <p class="important" style="margin-left: 20px;">Beispiele zeigen:</p>
+    <ul>
+        <li>Feststellbremse <span style="float: right;" class="important">= 42</span></li>
+        <li style="clear: both;">Blinker <span style="float: right;" class="important">= 9</span></li>
+        <li style="clear: both;">Warnblinkanlage <span style="float: right;" class="important">= 9 / 14 + blinkender Taster</span></li>
+        <li style="clear: both;">Abblendlicht <span style="float: right;" class="important">= 43</span></li>
+        <li style="clear: both;">Fernlicht Lichthupe <span style="float: right;" class="important">= 39</span></li>
+        <li style="clear: both;">Haltewunsch Fahrgast <span style="float: right;" class="important">= 12 / 13</span></li>
+    </ul>
+</div>`
+        },
+		{
+            q: "5. Kontrolle des Motorölstandes (Karte 3 / Frage 5)",
+            a: `<ul>
+					<img src="19.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<ul style="list-style-type: '– ';">
+						<li>kein Ölmessstab am Fahrzeug</li>
+						<li>Kontrolle Motorölstand nur noch im Display möglich</li>
+						<li>über Menütasten an linker Lenkradspeiche in Menü gehen</li>
+					</ul>
+					<p><b>Motoröl "klassisch" kontrollieren:</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>bei kaltem Motor / Motor länger als 15 Minuten AUS</li>
+						<li>auf ebenem Untergrund = sonst wird Ölstand verfälscht</li>
+						<li>zum Heck des Fahrzeugs gehen, Heckklappe öffnen</li>
+						<li>Ölmessstab herausziehen, dabei mit einem Tuch reinigen</li>
+						<li>ACHTUNG! es darf kein Öl auf den Boden tropfen (Umweltverschmutzung)</li>
+						<li>Ölmessstab wieder einführen</li>
+						<li>erneut herausziehen</li>
+						<li>Ölstand ablesen = muss zwischen Minimum / Maximum liegen</li>
+						<li>liegt Ölstand unter Minimum = ÖI nachfüllen; immer 0,5 Liter, dann erneut messen; Vorgang wiederholen, bis optimaler Ölstand erreicht ist</li>
+						<li>nur Öl verwenden, den Hersteller vorgibt</li>
+					</ul>
+				<ul>`
+        },
+		{
+            q: "6. Sichtprüfung der Anhängekupplung",
+            a: "Wir haben keine Anhängekupplung"
+        },
+		{
+            q: "7. Demonstrieren des vorschriftsmäßigen Absicherns eines liegengebliebenen Fahrzeugs",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+					<li>Warnblinkanlage einschalten</li>
+					<li>Fahrgäste informieren</li>
+					<li>Warnweste anziehen</li>
+					<li>Warndreieck und Warnlampe nehmen und hinter Fahrzeug aufstellen</li>
+					<li>Warndreieck ca. 100 m auf rechter Seite (Seite Fußweg)</li>
+					<li>Warnleuchte zwischen Fahrzeug und Warndreieck mittig ca. 50 m hinter Fahrzeug</li>
+					<li>Fahrgäste in Sicherheit bringen = hinter Leitplanke</li>
+					<li>älteren oder eingeschränkten Personen helfen</li>
+				</ul>
+				<ul>`
+        },
+		]
+		},
+		{
+    id: 7,
+    questions: [
+		{
+           q: "1. Aufgaben vor Fahrtantritt am Fahrtenschreiber/EG-Kontrollgerät (Karte 1 / Frage 1)",
+                    a: `<ul>
+							<img src="0.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<li>Zündung „AN"</li>
+                            <li>Fahrerkarte für Fahrer 1 in Schacht 1</li>
+                            <li>Chip nach vorn und nach oben</li>
+                            <li>Nachtrag auswählen „Ja" oder „Nein" > mit „Ok" bestätigen</li>
+						<img src="0-1.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+                            <li>aktuelles Land auswählen (für uns „D" für Deutschland) > mit „Ok" bestätigen</li>
+                            <li>mit Zeitgruppenschalter für Fahrer 1 "sonstige Arbeitszeit ⚒️" auswählen</li>
+							<li>Abfahrkontrolle machen</li>
+                            <li>ist <b>ausreichend</b> Vorratsdruck vorhanden, kann Abfahrkontrolle <b>ohne</b> laufenden Motor durchgeführt werden (Umweltschutz; Kraftstoff sparen)</li>
+                            <li>ist Vorratsdruck <b>nicht ausreichend</b>, Abfahrkontrolle <b>mit laufendem Motor</b> durchführen</li>
+			</ul>`
+        },
+		{
+           q: "2. Prüfen der Druckwarneinrichtung (Karte 2 / Frage 2)",
+                    a: `<ul>
+						<ul>
+							<img src="8.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<li>Fahrzeug hat 2 Druckwarneinrichtungen:</li>
+							<img src="9.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<li>diese 3 Anzeigen werden <span style="color: red;">ROT</span>, sobald der Vorratsdruck auf 6 bar (oder weniger) absinkt</li>
+							<img src="10.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+							<li>Kontrolllampe „Vorratsdruck gering" erscheint</li>
+						</ul>
+						<ul>
+							<li><b>Druckwarneinrichtung testen:</b>
+								<ul>
+								<li>Motor ,AUS" = Luftpresser (Kompressor) produziert keine neue Druckluft 
+								<li>Bremspedal 15-20 mal kräftig betätigen = Druckluftvorrat wird reduziert
+								<li>ist Druckluftvorrat auf 6 bar abgesunken erscheint Druckwarneinrichtung
+								<li>wenn Druckwarneinrichtung leuchtet, kann Fahrzeug nicht fahren = Sicherungsdruck
+								<li>um Vorratsdruck wieder aufzubauen = Motor starten (anlassen), Motordrehzahl erhöhen(Gas geben)
+								<li>Fahrzeug darf bewegt werden, wenn Abschaltdruck erreicht ist (Zisch-Geräusch)</li>
+						</ul>
+						</ul>`
+        },
+		{
+           q: "3. Funktion der Lenkhilfe prüfen",
+                    a: `<ul>
+					<ul style="list-style-type: '– ';">
+					<li>Motor „AUS"</li>
+					<li>Lenkrad mit rechter Hand auf Spannung ziehen = Spannung halten</li>
+					<li>Motor mit linker Hand (Zündschlüssel) starten</li>
+					<li>nach Motor „AN“ läßt sich Lenkrad leicht bewegen = Lenkhilfe arbeitet</li>
+					<li>läßt sich Lenkrad nicht leicht bedienen = Lenkhilfe defekt = Fahren verboten = Werkstatt aufsuchen</li>
+				</ul>
+				<ul>`
+        },
+		{
+			q: "4. Bremsleuchten, Kennzeichenbeleuchtung, Rückstrahler prüfen (Karte 1/ Frage 4)",
+                    a: `<ul>
+                            <li>Zündung anschalten</li>
+							<li>Standlicht einschalten</li>
+                            <li>zum Heck des Fahrzeugs gehen</li>
+                            <li>Kennzeichenbeleuchtung überprüfen</li>
+								<li>&nbsp &nbsp sauber</li>
+								<li>&nbsp &nbsp nicht kapput</li>
+								<li>&nbsp &nbsp muss leuchten</li>
+                            <li>alle 4 Bremsleuchten kontrollieren</li>
+							<li>Rückstrahler kontrollieren:</li>
+							<li>&nbsp &nbsp dürfen nicht kaputt, verschmutzt oder verdeckt sein</li>
+							<li>&nbsp &nbsp können mit einer Taschenlampe geprüft werden</li>
+						<img src="4-1.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+                        </ul>`
+        },
+		{
+            q: "5. Sichtprüfung des Antriebs von Nebenaggregaten (z.B. Lichtmaschine, Servo- und Wasserpumpe) (Karte 5 / Frage 5)",
+            a: `<ul>
+					<img src="29.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">	
+					<h2>Antrieb von Nebenaggregaten:</h2>
+
+    <ul>
+        <li>Antrieb = Keil-Rippen-Riemen</li>
+        <li>Keilriemen:
+            <ul>
+                <li>nicht gerissen</li>
+                <li>keine Schnitte</li>
+                <li>nicht porös</li>
+                <li>nicht ölig sein</li>
+                <li>nicht ausgefranst</li>
+                <li>keine Teile lösen</li>
+            </ul>
+        </li>
+        <li>auf Spannung prüfen:
+            <ul>
+                <li>auf Keilriemen drücken
+                    <ul>
+                        <li>darf max 1 cm eingedrückt werden können</li>
+                    </ul>
+                </li>
+                <li>Keilriemen drehen
+                    <ul>
+                        <li>darf max 45° gedreht werden können</li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+        <li>zu viel Spannung = Lager werden geschädigt</li>
+        <li>zu wenig Spannung = Keilriemen rutscht durch</li>
+    </ul>
+			</ul>`
+        },
+		{
+            q: "6. Bordwände, Verschlüsse, Gepäckklappen (nicht bei Klasse T), Ladeeinrichtung, Ladungssicherung (Zustandskontrolle) (nicht bei Klasse T)",
+            a: `<div class="vehicle-check-list">
+    
+    <div class="info-note">
+        <ul>
+            <li>Fahrzeug hat keine Gepäckklappen = auch keine Anzeige im Display „Gepäckklappe offen“</li>
+        </ul>
+    </div>
+
+    <h2>Kontrollgang um Fahrzeug:</h2>
+    <ul>
+        <li>Kontrolle Bordwände auf Beschädigungen = bsw. Unfall</li>
+        <li>Kontrolle Klappen = verschlossen</li>
+    </ul>
+
+    <h2>Kontrolle im Fahrzeug:</h2>
+    <ul>
+        <li>Kontrolle Ladung im Fahrzeug = Reinigungsmaterial, Pylonen, ...</li>
+    </ul>
+
+</div>`
+        },
+		{
+            q: "7. Demonstrieren der Notbetätigung der Türen",
+            a: `<img src="31.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">	
+			<div class="manual-instruction">
+
+    <h2>von innen:</h2>
+    <ul>
+        <li>drehen der Notverriegelung über 1. Tür = im Uhrzeigersinn</li>
+        <li>öffnen der Tür per Hand</li>
+        <li>Verriegeln 1. Tür mit Taster</li>
+        <li>Funktionskontrolle 1. Tür (öffnen / schließen)</li>
+        <li>Betätigung Taste „SOS“ = Innenraumbeleuchtung und Türbeleuchtung Eingangsbereich ausschalten</li>
+    </ul>
+	<img src="32.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">	
+
+    <h2>von außen:</h2>
+    <ul>
+        <li>drehen der Notverriegelung neben 1. Tür = im Uhrzeigersinn</li>
+        <li>öffnen der Tür per Hand</li>
+        <li>Verriegeln 1. Tür mit Taster</li>
+        <li>Funktionskontrolle 1. Tür (öffnen / schließen)</li>
+        <li>Betätigung Taste „SOS“ = Innenraumbeleuchtung und Türbeleuchtung Eingangsbereich ausschalten</li>
+    </ul>
+	<img src="33.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">	
+
+</div>`
+        },
+		]
+		},
+		{
+    id: 8,
+    questions: [
+		{
+            q: "1. Bedienung der Schalter am Fahrtenschreiber (Karte 2 / Frage 1)",
+            a: `<ul>
+						<img src="7.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+						<ul>
+							<li><b>1 = Schacht für Fahrerkarte 1</li></b>
+							<li><b>2 = Schacht für Fahrerkarte 2</li></b>
+							<li><b>3 = Zeitgruppenschalter / Aktivitäten für Fahrer 1</b>
+								<ul>
+									<li>lange drücken = Schacht für Fahrerkarte 1 wird geöffnet</li>
+									<li>kurz drücken = Umschalten der Zeitgruppen / Aktivitäten
+								<ul>
+									<li>⚒️ = sonstige Arbeitszeit</li>
+									<li>⧄ = Bereitschaftszeit
+									<li>h = Pause / Ruhezeit / Arbeitsunterbrechung
+									<li>⊙ = Lenkzeit (automatisch bei Fahrt, sobald Fahrzeug über 4 km/h)</li>
+								</ul>
+								</ul>
+							<li><b>4 = Zeitgruppenschalter / Aktivitäten für Fahrer 2</b>
+								<ul>
+								<li>Bedienung wie Fahrer 1 (außer „Lenkzeit“, bei Fahrer 2 nicht vorhanden)</li>
+								</ul>
+							<li><b>5 = Schublade für Druckerpapier</b>
+								<ul>
+								<li>immer eine Rolle Papier Vorrat
+								<li>richtige Größe beachten</li>
+								</ul>
+							<li><b>6 = USB- Schnittstelle zum Datentransfer</b>
+							<li><b>7 = Menüleiste</b>
+								<ul>
+								<li>"↩️" = im Menü zurück
+								<li>"⬆️" = im Menü nach oben blättern
+								<li>"⬇️" = im Menü nach unten blättern
+								<li>"OK"= ins Menü hineingehen; Eingabe bestätigen
+								</ul>
+						</ul>`
+        },
+		{
+            q: "2. Vorrat des Frostschutzmittels prüfen",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+					<li>Fahrzeug hat kein Frostschutzmittel für Druckluftanlage</li>
+					<li>Fahrzeug arbeitet mit Lufttrockner</li>
+					<li>Fahrzeug hat Frostschutzmittel für:</li>
+					<ul>
+					<li>Scheibenwaschanlage</li>
+					<li>Kühlsystem</li>
+					</ul>
+				</ul>
+				<ul>`
+        },
+		{
+            q: "3. Lenkungsspiel prüfen",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+					<li>Fenster Fahrerseite öffnen</li>
+					<li>Motor starten</li>
+					<li>2 Finger in linke Lenkradspeiche legen = Lenkrad 2 Finger breit bewegen</li>
+					<li>Bewegung der Räder an Lenkachse beobachten</li>
+					<li>Lenkungsspiel darf max 3 cm / 2 Finger breit sein, dann müssen sich Räder an Lenkachse bewegen</li>
+					<li>ist Lenkungsspiel größer = nicht Fahren = Werkstatt aufsuchen</li>
+				</ul>
+				<ul>`
+        },
+		{
+            q: "4. Batterie (Anschlüsse, Befestigung) prüfen",
+            a: `<div class="vehicle-check-list">
+    <ul>
+        <li>mit 4- Kant Bordklappe Fahrerseite öffnen</li>
+        <li>Fahrzeug hat 2 Batterien = 12 Volt Reihenschaltung = 24 Volt</li>
+        <li>Batterien müssen:
+            <ul style="padding-left: 25px; margin-top: 5px;">
+                <li>fest sitzen</li>
+                <li>doppelt gesichert sein = weil außen am Fahrzeug</li>
+            </ul>
+        </li>
+        <li>Pole und Polklemmen auf festen Sitz prüfen</li>
+        <li>dürfen nicht gerostet / gebrochen / defekt sein</li>
+        <li>Pole müssen gefettet sein = Rostschutz / bessere Leitfähigkeit</li>
+        <li>Stromleitungen müssen Isolierung haben = dürfen nicht defekt sein</li>
+        <li>Pole müssen mit Schutzkappe abgedeckt sein</li>
+    </ul>
+
+    <h2 style="margin-top: 25px;">ACHTUNG!</h2>
+    <ul>
+        <li>bei Arbeiten an Batterie (Wartung = Kontrolle Säurestand bsw.) immer Schutzhandschuhe und Schutzbrille tragen = <span style="color: #c00;">Verätzungsgefahr</span></li>
+    </ul>
+</div>`
+        },
+		{
+            q: "5. Flüssigkeitsvorrat in Scheiben- und Scheinwerferwaschanlage kontrollieren",
+            a: `<div class="vehicle-check-list">
+    <ul>
+        <li>Bugklappe öffnen</li>
+        <li>Vorratsbehälter Scheibenwaschwasser kontrollieren:
+            <ul style="padding-left: 25px; margin-top: 5px;">
+                <li>verschlossen</li>
+                <li>nicht defekt</li>
+                <li>wie viel Vorrat an Scheibenwaschwasser vorhanden</li>
+            </ul>
+        </li>
+    </ul>
+</div>`
+        },
+		{
+            q: "6. Plane / Spriegel (Zustand und Befestigung kontrollieren, prüfen ob Plane frei von Wasser oder u.U. von Schnee und Eis)",
+            a: `<div class="vehicle-check-list">
+    <ul>
+        <li>wir haben keine Plane / Spriegel (LKW)</li>
+        <li>Fahrzeug (Bus) muss aber frei sein von Schnee und Eis:
+            <ul style="padding-left: 25px; margin-top: 5px;">
+                <li>komplettes Fahrzeug (auch Dach) muss von Schnee und Eis befreit sein</li>
+                <li>mit Besen reinigen</li>
+                <li>dabei Leiter oder Rampe benutzen <span style="color: #0000FF; font-style: italic; margin-left: 10px;">neben der Rampe busstehen</span></li>
+            </ul>
+        </li>
+    </ul>
+</div>`
+        },
+		{
+            q: "7. Beschreibung der Handhabung des Feuerlöschers",
+            a: `<div class="vehicle-check-list">
+    <ul>
+        <li>Bus Eindecker (eine Etage) = 1 Feuerlöscher</li>
+        <li>Doppeldecker (zwei Etagen) = 2 Feuerlöscher</li>
+    </ul>
+
+    <ul style="margin-top: 20px;">
+        <li>Klassen ABC</li>
+        <li>6 kg Inhalt</li>
+    </ul>
+
+    <ul style="margin-top: 20px;">
+        <li>Haltbarkeitsdatum kontrollieren = Feuerlöscher-Plakette immer 12 Monate gültig, dann Feuerlöscher tauschen</li>
+    </ul>
+
+    <ul style="margin-top: 20px;">
+        <li>Feuerlöscher aus Halterung nehmen</li>
+        <li>auf Boden stoßen, damit Pulver sich löst</li>
+        <li>Sicherung lösen</li>
+        <li>Schlauch nehmen</li>
+        <li>Feuer löschen:
+            <ul style="padding-left: 25px; margin-top: 5px;">
+                <li>stoßweise <span style="color: #0000FF; font-family: cursive; margin-left: 10px;">PS - PS - PS</span></li>
+                <li>in Feuer hinein</li>
+                <li>mit dem Wind (Wind im Rücken) <span style="color: #0000FF; font-family: cursive; margin-left: 10px;">Gleiche Wind Richtung</span></li>
+            </ul>
+        </li>
+    </ul>
+</div>`
+        },
+		]
+		},
+		{
+    id: 9,
+    questions: [
+		{
+            q: "1. Benennen der Symbole auf dem Fahrtenschreiber (Karte 4 / Frage 1)",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+        <li>es gibt viele Symbole</li>
+        <li>4 Haupt-Symbole</li>
+        <li>kurz drücken = Umschalten der Zeitgruppen / Aktivitäten
+            <ul>
+                <li>&#8857; = Lenkzeit (automatisch bei Fahrt, sobald Fahrzeug über 4 km/h)</li>
+                <li>&#9874; = sonstige Arbeitszeit</li>
+                <li>&#10692; = Bereitschaftszeit</li>
+                <li>h = Pause / Ruhezeit / Arbeitsunterbrechung</li>
+            </ul>
+        </li>
+        <li>Symbol für Fahrerkarte (sieht aus wie eine Tür)</li>
+    </ul>
+				<ul>`
+        },
+		{
+            q: "2. Sichtprüfung der Betriebs- und Feststellbremse (Karte 3 / Frage 2)",
+            a: `<ul>
+					<p><b>Fahrzeug hat Scheibenbremse</b></p>
+					<img src="14.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<p><b>Kontrolle der Bremsscheibe:</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>Bremsscheibe muss silber sein</li>
+						<li>darf nicht:</li>
+					<ul>
+						<li>rostig sein = Bremsklötze erreichen Bremsscheibe nicht, Bremse arbeitet nicht</li>
+						<li>blau verfärbt sein = Bremsscheibe war überhitzt, Bremse arbeitet nicht ausreichend / nicht mehr</li>
+					</ul>
+						<li>keine Risse</li>
+						<li>Verschleiß überprüfen = Grat am äußeren Rand der Bremsscheibe. Teile die Kraft Auf die Räder. Display im Bordmenü-Sembol bus - (ESB), Bremsbelagverschließ</li>
+						<li>Bremsscheiben können mit Taschenlampe angestrahlt werden = in Felge hineinleuchten</li>
+						<li>kann keine Sichtkontrolle erfolgen, dann zur genaueren Kontrolle in Werkstatt auf die Grube / den Kanal fahren</li>
+					</ul>
+					<p><b>Feststellbremse Funktion prüfen:</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>Motor starten</li>
+						<li>Fahrstufe „D" einlegen, mit gezogener Feststellbremse versuchen anzufahren</li>
+						<li>Feststellbremse muss Fahren verhindern</li>
+					</ul>
+				<ul>`
+        },
+		{
+            q: "3. Ölstand der Servolenkung prüfen",
+            a: `<div class="vehicle-check-list">
+    <ul>
+        <li>Bugklappe öffnen</li>
+        <li>Vorratsbehälter Servoöl überprüfen:
+            <ul style="padding-left: 25px; margin-top: 5px;">
+                <li>Öl muss zwischen min und max sein</li>
+            </ul>
+        </li>
+    </ul>
+</div>`
+        },
+		{
+            q: "4. Schluss-, Umrissleuchten hinten, Funktion prüfen",
+            a: `<div class="vehicle-check-list">
+    <ul>
+        <li>Zündung „AN“</li>
+        <li>Standlicht einschalten</li>
+        <li>Schlussleuchte kontrollieren = bei Defekt = Werkstatt (LED)</li>
+        <li>Umrissleuchten kontrollieren = bei Defekt = Werkstatt (LED)</li>
+    </ul>
+</div>`
+        },
+		{
+            q: "5. Überprüfung der Scheibenwaschanlage und der Einstellung der Spritzdüsen",
+            a: `<div class="vehicle-check-list">
+    <ul>
+        <li>Scheibenwischer ausklappen</li>
+        <li>Wischerblatt kontrollieren:
+            <ul style="padding-left: 25px; margin-top: 5px;">
+                <li>nicht defekt</li>
+                <li>nicht ölig</li>
+                <li>nicht schmutzig</li>
+            </ul>
+        </li>
+        <li>Spritzdüsen kontrollieren:
+            <ul style="padding-left: 25px; margin-top: 5px;">
+                <li>nicht schmutzig oder verstopft</li>
+                <li>wenn verstopft = vorsichtig mit Nadel reinigen</li>
+            </ul>
+        </li>
+        <li>Leitungen kontrollieren:
+            <ul style="padding-left: 25px; margin-top: 5px;">
+                <li>nicht gerissen</li>
+                <li>nicht lose</li>
+            </ul>
+        </li>
+    </ul>
+
+    <ul style="margin-top: 20px;">
+        <li>Scheibenwaschanlage betätigen = mit Wischwasser mehrere Sekunden arbeiten lassen</li>
+        <li>kontrollieren ob Wischwasser auf Frontscheibe auftrifft</li>
+        <li>geht Wischwasser in falsche Richtung = Position der Düse mit Nadel korrigieren</li>
+    </ul>
+</div>`
+        },
+		{
+            q: "6. Zustand der Scheiben und Spiegel (Sauberkeit, Beschädigung) (Karte 5 / Frage 6)",
+            a: `<ul>
+	    <h3>Spiegel:</h3>
+    <ul>
+        <li>fester Sitz</li>
+        <li>sauber</li>
+        <li>keine Beschädigung</li>
+    </ul>
+
+    <h3>Scheiben:</h3>
+    <ul>
+        <li>sauber</li>
+        <li>keine Beschädigung</li>
+    </ul>
+
+    <h3>Beschädigungen:</h3>
+    <ul>
+        <li>Risse = Scheibe tauschen = bei Bodendelle / Temperaturunterschiede (heiß / kalt) kann Riss wandern</li>
+        <li><span class="highlight">Steinschläge:</span>
+            <ul>
+                <li>befindet sich Steinschlag im Sichtfeld des Fahrers = Scheibe tauschen</li>
+                <li>befindet sich Steinschlag außerhalb des Sichtfeldes = Scheibe kann bleiben, muss aber von Spezialwerkstatt ausgebessert werden</li>
+            </ul>
+        </li>
+    </ul>
+			<ul>`
+        },
+		{
+            q: "7. Kontrolle einer Sicherung bzw. Handhabung des Sicherungsautomaten",
+            a: `<div class="vehicle-check-list">
+    <ul>
+        <li>Sicherungsautomat sichert elektrische Anlage gegen Kabelbrand</li>
+    </ul>
+
+    <ul style="margin-top: 20px;">
+        <li>Fahrzeug hat Sicherungsautomat</li>
+        <li>befindet sich hinter Fahrersitz</li>
+    </ul>
+
+    <ul style="margin-top: 20px;">
+        <li>kontrollieren ob alle Sicherungen gedrückt sind</li>
+        <li>ist ein Stift herausgesprungen = wieder hineindrücken</li>
+        <li>springt Stift erneut heraus = technisches Problem = Werkstatt aufsuchen</li>
+    </ul>
+
+    <ul style="margin-top: 20px;">
+        <li>an Innenseite der Tür befindet sich Schaltschema = zeigt an, welche Sicherung welches Bauteil absichert</li>
+    </ul>
+
+    <p style="margin-top: 25px; font-weight: bold;">
+        Fahrzeug hat Batterietrennschalter („Tot-Schalter“) = bei Betätigung wird gesamtes Fahrzeug stromlos gemacht
+    </p>
+</div>`
+        },
+		]
+		},
+		{
+    id: 10,
+    questions: [
+		{
+            q: "1. Überprüfen eines Schaublattes bzw. eines Ausdruckes des Fahrtenschreibers: a) Wie viele Kilometer wurden gefahren? b) Wie lange war die Fahrtunterbrechung? c) Nach wie vielen Stunden wurde die erste Pause eingelegt? d) Welche Höchstgeschwindigkeit wurde gefahren bzw. wurden beim digitalen Fahrtenschreiber Geschwindigkeitsüberschreitungen dokumentiert? (Karte 5 / Frage 1)",
+            a: `<ul>
+					<h3>a) Wie viele Kilometer wurden gefahren?</h3>
+					<img src="25.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<h3>b) Wie lange war die Fahrtunterbrechung?</h3>
+					<img src="26.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<h3>c) Nach wie vielen Stunden wurde die erste Pause eingelegt?</h3>
+					<img src="27.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+					<h3>d) Welche Höchstgeschwindigkeit wurde gefahren bzw. wurden beim digitalen Fahrtenschreiber Geschwindigkeitsüberschreitungen dokumentiert?</h3>
+					<img src="28.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+			</ul>`
+        },
+		{
+            q: "2. Prüfen, ob Pedalwege frei sind (Karte 4 / Frage 2)",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+					<li>alle Pedale treten, fühlen ob Gegenstand unter Pedalen liegt</li>
+					<li>mit Taschenlampe unter Pedale leuchten = Sichtprüfung</li>
+					<li>Gegenstände (Flaschen, Steine, Müll ...) entfernen</li>
+					<li>links, rechts und hinter dem Fahrersitz nach Gegenständen sehen</li>
+					<li>Gegenstände entfernen</li>
+				</ul>`
+        },
+		{
+            q: "3. Sichtprüfung der Federung",
+            a: `<img src="34.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+			<div class="manual-box">
+    <p class="header-note">
+        Kontrolle nur bei ausreichend Druckluftvorrat möglich = Luftfederung
+    </p>
+
+    <h2>Kontrolle Federbalg:</h2>
+    <ul>
+        <li>Federbalg nicht gerissen, porös, defekt</li>
+        <li>auf Luftaustritt achten</li>
+    </ul>
+
+    <h2>Fahrzeug:</h2>
+    <ul>
+        <li>vor Fahrzeug stellen</li>
+        <li>Fahrzeug muss waagerecht stehen = nicht geneigt sein</li>
+    </ul>
+
+    <div style="margin-top: 20px;">
+        <ul>
+            <li>ist Federbalg / Luftfeder defekt:
+                <ul class="sub-list">
+                    <li>max 25 km/h fahren</li>
+                    <li>ohne Fahrgäste</li>
+                    <li>nur bis nächste Werkstatt</li>
+                    <li><span class="important">nicht</span> Autobahn benutzen</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+</div>`
+        },
+		{
+            q: "4. Kontrolllampen benennen oder Kontrollsysteme aktivieren und an zwei Beispiel enerläutern (Karte 6 / Karte 4)",
+            a: `<img src="30.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+			<div class="guide-card" style="margin-top: 20px;">
+    <p class="important" style="margin-left: 20px;">Beispiele zeigen:</p>
+    <ul>
+        <li>Feststellbremse <span style="float: right;" class="important">= 42</span></li>
+        <li style="clear: both;">Blinker <span style="float: right;" class="important">= 9</span></li>
+        <li style="clear: both;">Warnblinkanlage <span style="float: right;" class="important">= 9 / 14 + blinkender Taster</span></li>
+        <li style="clear: both;">Abblendlicht <span style="float: right;" class="important">= 43</span></li>
+        <li style="clear: both;">Fernlicht Lichthupe <span style="float: right;" class="important">= 39</span></li>
+        <li style="clear: both;">Haltewunsch Fahrgast <span style="float: right;" class="important">= 12 / 13</span></li>
+    </ul>
+</div>`
+        },
+		{
+            q: "5. Überprüfung der Luftfilteranlage",
+            a: `<div class="manual-box">
+    <ul>
+        <li>ist Luftfilter verschmutzt = Fehlermeldung im Display</li>
+    </ul>
+
+    <ul>
+        <li>zu erkennen auch:
+            <ul class="sub-list">
+                <li>Leistungsverlust = Fahrzeug fährt langsamer / ohne Kraft</li>
+                <li>Kraftstoffverbrauch erhöht</li>
+                <li>erhöhter Schadstoffausstoß = mehr Abgase am Auspuff zu beobachten</li>
+            </ul>
+        </li>
+    </ul>
+</div>`
+        },
+		{
+            q: "6. Unterlegkeile (Anzahl, Unterbringung) (Karte 2 / Frage 6)",
+            a: `<ul>
+					<ul style="list-style-type: '– ';">
+						<li>2 Achsen &ensp; &ensp; &ensp; &ensp; &ensp; &ensp;= 1 Unterlegkeil</li>
+						<li>mehr als 2 Achsen &ensp;= 2 Unterlegkeile</li>
+						<li>sind nur gesetzliches Minimum, mehr Unterlegkeile sind erlaubt</li>
+					</ul>
+						<p><b>Unterlegkeile kontrollieren:</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>Größe der Unterlegkeile muss passen zur Größe der Reifen</li>
+						<li>Rundung der Keile muss zur Rundung der Reifen passen</li>
+						<li>Keile dürfen nicht defekt sein</li>
+						<li>müssen eine DIN-Nummer haben</li>
+						<li>sind Unterlegkeile außerhalb des Fahrzeugs angebracht, müssen sie doppelt gesichert sein</li>
+					</ul>
+					<p><b>Benutzen der Unterlegkeile:</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>steht Fahrzeug gerade auf Ebene = Unterlegkeil hinter Rad der Antriebsachse</li>
+						<li>steht Fahrzeug auf Gefälle = Unterlegkeil vor Rad der Antriebsachse</li>
+						<li>steht Fahrzeug auf Steigung = Unterlegkeil hinter Rad der Antriebsachse</li>
+					</ul>
+					<p><b>ACHTUNG!</b></p>
+					<ul style="list-style-type: '– ';">
+						<li>Unterlegkeil nie an Lenkachse anlegen!</li>
+					</ul>
+				<ul>`
+        },
+		{
+            q: "7. Bedienung der Heizungs- und Lüftungsanlage",
+            a: `<img src="35.jpg" class="zoomable-img" onclick="zoomImg(this)" onerror="this.style.display='none'">
+			<div class="controls-section">
+        <ol>
+            <li><span class="highlight">Taste Umluft / Smog</span></li>
+            <li><span class="highlight">Zonenumschalttaste = Umschalten zwischen Fahrerplatz und Fahrgastraum</span></li>
+            <li>Zusatzheizung</li>
+            <li>Klima Fahrer</li>
+            <li>Reheat-Betrieb = Scheibenheizung = Verringerung Scheibenbeschlag (arbeitet 30 min; dann schaltet automatisch ab)</li>
+            <li>Auswahlmenü</li>
+            <li>Menü „AUS“ = 2x drücken = Fahrgastraum wird ausgeschaltet</li>
+            <li><span class="highlight">Frontscheibenenteisung / Entfrosten = max Leistung wird auf Frontscheibe und Fußraum Fahrer gelenkt</span></li>
+            <li><span class="highlight">Regulierung Gebläsestärke für Fahrer</span></li>
+            <li>Klappenverstellung Fahrer</li>
+            <li><span class="highlight">Einstellung Temperatur</span></li>
+            <li>AUTO- Betrieb</li>
+            <li><span class="highlight">Display</span></li>
+        </ol>
+
+        <div class="footer-note">
+            <span class="highlight">Fehlermeldungen werden im Display Fahrerarbeitsplatz angezeigt</span>
+        </div>
+    </div>
+
+</div>`
+        },
+		]
+		},
+    ];
+
+    let currentCardId = null;
+    let viewStack = ['home'];
+
+    function init() {
+        const homeView = document.getElementById('view-home');
+        cardsData.forEach(card => {
+            const cardEl = document.createElement('div');
+            cardEl.className = 'yellow-card';
+            cardEl.onclick = () => showQuestions(card.id);
+            cardEl.innerHTML = `<h2>${card.id}</h2><p>KARTE</p>`;
+            homeView.appendChild(cardEl);
+        });
+    }
+	
+	function zoomImg(el) {
+        const modal = document.getElementById("imageModal");
+        const fullImg = document.getElementById("fullImage");
+        modal.style.display = "block";
+        fullImg.src = el.src;
+	}
+	
+    function showHome() {
+        hideAll();
+        document.getElementById('view-home').classList.remove('hidden');
+        document.getElementById('back-button').classList.add('hidden');
+        document.getElementById('nav-title').innerText = "Bus-Abfahrtskontrolle";
+        viewStack = ['home'];
+    }
+
+    function showQuestions(cardId) {
+        hideAll();
+        currentCardId = cardId;
+        const view = document.getElementById('view-questions');
+        const container = document.getElementById('questions-container');
+        const card = cardsData.find(c => c.id === cardId);
+        
+        document.getElementById('current-card-title').innerText = `Karte ${cardId}`;
+        container.innerHTML = "";
+        
+        card.questions.forEach((q, index) => {
+            const qEl = document.createElement('div');
+            qEl.className = 'question-list-item';
+            qEl.innerHTML = q.q;
+            qEl.onclick = () => showAnswer(cardId, index);
+            container.appendChild(qEl);
+        });
+
+        view.classList.remove('hidden');
+        document.getElementById('back-button').classList.remove('hidden');
+        viewStack.push('questions');
+    }
+
+    function showAnswer(cardId, qIndex) {
+        hideAll();
+        const view = document.getElementById('view-answer');
+        const card = cardsData.find(c => c.id === cardId);
+        const question = card.questions[qIndex];
+
+        document.getElementById('answer-question-text').innerText = question.q;
+        document.getElementById('answer-content').innerHTML = `<div class="answer-container">${question.a}</div>`;
+        
+        view.classList.remove('hidden');
+        document.getElementById('back-button').classList.remove('hidden');
+        viewStack.push('answer');
+    }
+
+    function hideAll() {
+        document.getElementById('view-home').classList.add('hidden');
+        document.getElementById('view-questions').classList.add('hidden');
+        document.getElementById('view-answer').classList.add('hidden');
+    }
+
+    function goBack() {
+        if (viewStack.length > 1) {
+            viewStack.pop(); 
+            const lastView = viewStack[viewStack.length - 1];
+            if (lastView === 'home') showHome();
+            else if (lastView === 'questions') showQuestions(currentCardId);
+        }
+    }
+
+    function search() {
+        const query = document.getElementById('search-input').value.toLowerCase();
+        if (query.length < 2) return;
+
+        hideAll();
+        const container = document.getElementById('questions-container');
+        document.getElementById('current-card-title').innerText = "Suchergebnisse";
+        container.innerHTML = "";
+
+        cardsData.forEach(card => {
+            card.questions.forEach((q, idx) => {
+                if (q.q.toLowerCase().includes(query) || q.a.toLowerCase().includes(query)) {
+                    const qEl = document.createElement('div');
+                    qEl.className = 'question-list-item';
+                    qEl.innerHTML = `<small>Karte ${card.id}</small><br>${q.q}`;
+                    qEl.onclick = () => showAnswer(card.id, idx);
+                    container.appendChild(qEl);
+                }
+            });
+        });
+
+        document.getElementById('view-questions').classList.remove('hidden');
+        document.getElementById('back-button').classList.remove('hidden');
+    }
+
+    init();
+</script>
+
+</body>
+</html>
