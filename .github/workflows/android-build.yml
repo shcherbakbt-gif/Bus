@@ -2,7 +2,7 @@ name: Build Android APK
 on:
   push:
     branches:
-      - main  # Сборка запустится, когда вы загрузите файлы в ветку main
+      - main
 
 jobs:
   build:
@@ -14,15 +14,18 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-size: 20
+          node-version: 20
 
-      - name: Install Dependencies
+      - name: Install Capacitor Dependencies
         run: |
-          npm install -g @capacitor/cli @capacitor/core @capacitor/android
-          # Создаем базовый package.json, если его нет
-          echo '{"name": "bus-app", "version": "1.0.0", "dependencies": {}}' > package.json
+          # Создаем package.json, если его нет
+          if [ ! -f package.json ]; then
+            echo '{"name": "bus-app", "version": "1.0.0"}' > package.json
+          fi
+          # Устанавливаем необходимые пакеты локально
+          npm install @capacitor/core @capacitor/cli @capacitor/android
 
-      - name: Initialize Capacitor
+      - name: Initialize Capacitor and Add Android
         run: |
           npx cap init "Bus Lernprogramm" "com.bus.app" --web-dir .
           npx cap add android
