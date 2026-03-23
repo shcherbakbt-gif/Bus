@@ -11,17 +11,24 @@ jobs:
       - name: Checkout Source
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
       - name: Prepare Web Directory
         run: |
-          # Создаем папку www и копируем туда всё, кроме системных папок
-          mkdir www
-          cp -r *.html *.json *.jpg *.png www/ 2>/dev/null || true
-          # Проверяем, что файлы скопировались
+          # Создаем папку www
+          mkdir -p www
+          
+          # Ищем index.html (игнорируя регистр) и копируем его в www
+          find . -maxdepth 2 -iname "index.html" -exec cp {} www/index.html \;
+          
+          # Копируем все остальные важные файлы
+          cp *.json www/ 2>/dev/null || true
+          cp *.jpg www/ 2>/dev/null || true
+          cp *.png www/ 2>/dev/null || true
+          
+          # Проверяем, появился ли файл в нужной папке
+          if [ ! -f "www/index.html" ]; then
+            echo "ОШИБКА: Файл index.html не найден в репозитории!"
+            exit 1
+          fi
           ls -R www
 
       - name: Install Capacitor Dependencies
@@ -33,7 +40,6 @@ jobs:
 
       - name: Initialize Capacitor and Add Android
         run: |
-          # Теперь указываем папку www вместо точки
           npx cap init "Bus Lernprogramm" "com.bus.app" --web-dir www
           npx cap add android
 
